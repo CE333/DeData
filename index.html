@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>DeData — private data, priced by privacy budget</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+<style>
+:root{--bg:#f6f3ec;--fg:#1d2320;--mut:#6b726c;--card:#fffdf8;--bd:#d8d2c3;--ac:#1f5c4a;--acfg:#fff;--bad:#a93226;--ok:#1f7a45;--mono:ui-monospace,Menlo,Consolas,monospace;--serif:Georgia,"Times New Roman",serif}
+@media(prefers-color-scheme:dark){:root{--bg:#11160f;--fg:#e9eadf;--mut:#9aa396;--card:#182016;--bd:#2c3828;--ac:#6fcf9f;--acfg:#0b1a12;--bad:#ff8b7a;--ok:#6fcf9f}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+header{padding:20px 5vw;border-bottom:1px solid var(--bd);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font:600 26px var(--serif);margin:0;flex:1}h1 small{display:block;font:13px system-ui;color:var(--mut)}
+h2{font:600 19px var(--serif);margin:0 0 10px}
+nav{display:flex;gap:4px;padding:0 5vw;border-bottom:1px solid var(--bd);overflow-x:auto}
+nav button{background:none;border:0;border-bottom:3px solid transparent;padding:12px 14px;color:var(--mut);cursor:pointer;font:inherit}
+nav button.on{color:var(--fg);border-color:var(--ac)}
+main{padding:20px 5vw;max-width:1100px}section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:8px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+button.b,.card button{background:var(--ac);color:var(--acfg);border:0;border-radius:6px;padding:7px 12px;cursor:pointer;font:inherit}
+button.g{background:none!important;color:var(--fg)!important;border:1px solid var(--bd)!important}
+input,select,textarea{width:100%;background:var(--bg);color:var(--fg);border:1px solid var(--bd);border-radius:6px;padding:7px 9px;font:inherit;margin:3px 0 8px}
+label{font-size:13px;color:var(--mut)}.row{display:flex;gap:8px;align-items:end;flex-wrap:wrap}.row>*{flex:1;min-width:110px}
+.mono{font-family:var(--mono);font-size:12.5px;word-break:break-all}.mut{color:var(--mut)}.bad{color:var(--bad)}.ok{color:var(--ok)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--bd);vertical-align:top}th{font-weight:600;color:var(--mut)}
+.tw{overflow-x:auto}#log{font:12.5px var(--mono);max-height:150px;overflow:auto;padding:10px 5vw;border-top:1px solid var(--bd);background:var(--card)}
+.hero{font:600 clamp(34px,7vw,60px)/1.04 var(--serif);margin:10px 0 12px;max-width:16ch}.lead{max-width:60ch;color:var(--mut);font-size:17px}
+.stat b{display:block;font:600 34px var(--serif)}.flow{display:flex;gap:0;flex-wrap:wrap}.flow div{flex:1;min-width:150px;padding:10px 12px;border-left:3px solid var(--ac)}.flow b{display:block}
+</style>
+</head>
+<body>
+<header>
+  <h1>DeData<small>Private data is computed on, never handed over. Buyers pay for privacy budget. opBNB Testnet (5611)</small></h1>
+  <span id="who" class="mono mut"></span>
+  <button class="b" id="conn">Connect wallet</button>
+</header>
+<nav id="tabs"></nav>
+<main>
+<section id="t-home"><div class="hero">Sell insight, not data.</div>
+  <p class="lead">Datasets never leave their owner. Buyers pay for a scarce differential-privacy budget, results are settled optimistically on opBNB, and every result carries a hidden fingerprint that proves who leaked it. Models trained on the results get a soulbound provenance receipt.</p>
+  <div id="stats" class="grid"></div>
+  <div class="card"><h2>One request, five on-chain steps</h2><div class="flow">
+    <div><b>Request</b>Buyer locks payment and buys eps</div><div><b>Commit</b>Provider posts result hash and a 20% bond</div>
+    <div><b>Challenge</b>Buyer has 24h to dispute</div><div><b>Settle</b>Provider paid, 2.5% fee, bond returned</div><div><b>Attribute</b>Leaked canary slashes the buyer's stake</div></div></div>
+  <div class="grid"><div class="card"><h2>Priced privacy</h2>Price rises as the privacy budget is spent, so scarce data costs more.</div>
+  <div class="card"><h2>Leak attribution</h2>Per-buyer canaries committed in a Merkle root make a leak provable.</div>
+  <div class="card"><h2>Provenance</h2>A soulbound NFT links a model to the datasets it was trained on.</div></div></section>
+<section id="t-dec"><h2>Decrypt a result</h2><div class="card"><p class="mut">Fetches the encrypted result from the provider node, checks its hash against the on-chain commitment, and decrypts it in your browser. Nothing is uploaded.</p>
+  <div class="row"><div><label>Request id</label><input id="d-id"></div><div><label>Provider node URL</label><input id="d-url" value="http://localhost:8787"></div></div>
+  <label>Your private key file (from "Generate key pair")</label><input id="d-key" type="file" accept=".json"><button id="b-dec">Verify and decrypt</button><pre id="d-out" class="mono"></pre></div></section>
+<section id="t-market"><h2>Datasets</h2>
+  <div class="card"><label>Your public key (the provider encrypts the result to this key)</label>
+    <textarea id="key" rows="2" class="mono" placeholder="0x… (P-256 ECDH raw public key)"></textarea>
+    <div class="row"><button class="g" id="gen">Generate key pair (downloads the private key)</button>
+    <div><label>Max slippage (bps)</label><input id="slip" value="100"></div></div></div>
+  <div id="ds" class="grid"></div></section>
+
+<section id="t-req"><h2>Requests</h2>
+  <label><input type="checkbox" id="mine" style="width:auto"> only mine (as buyer or provider)</label>
+  <div class="card tw"><table><thead><tr><th>#</th><th>Dataset</th><th>Buyer</th><th>Status</th><th>Amount</th><th>Deadline</th><th>Action</th></tr></thead><tbody id="rq"></tbody></table></div></section>
+
+<section id="t-prov"><h2>Provider</h2>
+  <div class="card"><h2>List a dataset</h2>
+    <label>Data hash (0x 32 bytes, or any text: it gets hashed)</label><input id="l-hash" placeholder="Greenfield object id or hash">
+    <label>Metadata URI (stored in the event, only its hash on-chain)</label><input id="l-uri" placeholder="ipfs://…">
+    <div class="row"><div><label>Price per eps (BNB)</label><input id="l-price" value="0.001"></div>
+    <div><label>Total eps</label><input id="l-eps" value="100"></div>
+    <div><label>Min buyer stake (BNB)</label><input id="l-stake" value="0.5"></div></div>
+    <button id="b-list">Commit, then list</button> <span class="mut">Two transactions, one block apart (anti-front-running).</span></div>
+  <div class="card"><h2>Commit a result</h2>
+    <p class="mut">Build <span class="mono">canaryRoot</span> with <span class="mono">node script/canary-tree.js &lt;requestId&gt; &lt;count&gt;</span>. The 20% bond is sent automatically.</p>
+    <div class="row"><div><label>Request id</label><input id="c-id"></div>
+    <div><label>Result hash (0x…, or text)</label><input id="c-res"></div>
+    <div><label>Canary root (0x…)</label><input id="c-root"></div></div>
+    <div id="c-bond" class="mut"></div><button id="b-commit">Commit result</button></div></section>
+
+<section id="t-me"><h2>Wallet</h2>
+  <div class="card" id="me-info">Connect a wallet.</div>
+  <div class="grid">
+    <div class="card"><h2>Stake (buyers)</h2><label>Amount (BNB)</label><input id="s-amt" value="1">
+      <button id="b-stake">Stake</button> <button class="g" id="b-ru">Request unstake</button> <button class="g" id="b-un">Unstake</button>
+      <p class="mut">Unstake needs a 14 day cooldown and 90 days since your last purchase.</p></div>
+    <div class="card"><h2>Withdraw</h2><p class="mut">All payouts and refunds accumulate here.</p><button id="b-wd">Withdraw claimable</button></div>
+    <div class="card"><h2>Provenance receipt</h2><label>Model hash / label</label><input id="m-model">
+      <label>Metadata URI</label><input id="m-uri"><label>Completed request ids (comma separated)</label><input id="m-ids" placeholder="1,2,3">
+      <button id="b-mint">Mint</button></div>
+    <div class="card"><h2>Arbiter: leak report</h2><p class="mut">Only the arbiter wallet can resolve.</p><label>Report id</label><input id="r-id">
+      <button id="b-up">Uphold</button> <button class="g" id="b-rej">Reject</button></div>
+    <div class="card"><h2>Report a leak</h2><label>Request id</label><input id="k-id"><label>Canary hash</label><input id="k-hash">
+      <label>Proof (JSON array)</label><input id="k-proof" placeholder='["0x…"]'><button id="b-leak">Commit and report</button></div>
+  </div></section>
+</main>
+<div id="log"></div>
+
+<script>
+const {ethers}=window;
+const C={chain:5611,rpc:"https://opbnb-testnet-rpc.bnbchain.org",proto:"0x5c6dA7E2B4D37Bc88E828c6512c93C659e5f1F1d",prov:"0x3b9b87018E3f99841f4323dC2357BD21075dfbde",from:209310482,scan:"https://testnet.opbnbscan.com"};
+const D="tuple(address provider,bool isActive,uint32 epsTotal,uint32 epsRemaining,uint96 pricePerEps,uint96 minBuyerStake,uint64 totalCompleted,bytes32 dataHash,bytes32 metadataHash)";
+const R="tuple(address buyer,uint96 amount,uint64 datasetId,uint64 commitDeadline,uint64 challengeDeadline,uint64 disputeDeadline,uint96 providerBond,uint96 buyerBond,uint32 epsSpent,uint8 status,uint96 stakeAtRisk,bytes32 buyerKeyHash,bytes32 resultHash,bytes32 canaryRoot)";
+const PA=["function arbiter() view returns (address)","function reportBond() view returns (uint256)","function datasetCount() view returns (uint256)","function requestCount() view returns (uint256)","function claimable(address) view returns (uint256)","function quote(uint256,uint32) view returns (uint256)","function providerBondFor(uint256) view returns (uint256)","function disputeBondFor(uint256) view returns (uint256)",
+`function getDataset(uint256) view returns (${D})`,`function getRequest(uint256) view returns (${R})`,"function getStake(address) view returns (tuple(uint96 amount,uint64 unlockAt,uint64 lastPurchaseAt,uint32 openReports))",
+"function commit(bytes32)","function listDataset(bytes32,bytes32,string,uint96,uint32,uint96) returns (uint256)","function commitResult(uint256,bytes32,bytes32) payable","function requestCompute(uint256,uint32,bytes,uint256) payable returns (uint256)","function refundUncommitted(uint256)","function disputeResult(uint256) payable","function finalize(uint256)","function resolveDispute(uint256,bool)","function expireDispute(uint256)","function resolveLeak(uint256,bool)","function reportLeak(uint256,bytes32,bytes32,bytes32[]) payable returns (uint256)","function stake() payable","function requestUnstake()","function unstake()","function withdraw()",
+"event DatasetListed(uint256 indexed datasetId,address indexed provider,bytes32 dataHash,string metadataURI)",
+"error Unauthorized()","error ContractPaused()","error ZeroValue()","error InvalidCommitment()","error HashAlreadyListed()","error BudgetExhausted()","error DatasetInactive()","error SelfPurchase()","error InsufficientStake()","error StakeLocked()","error SlippageExceeded(uint256,uint256)","error InvalidPayment(uint256,uint256)","error InvalidStatus()","error WindowOpen()","error WindowClosed()","error AlreadyReported()","error InvalidProof()","error TransferFailed()","error Overflow()"];
+const VA=["function mint(bytes32,uint256[],string) returns (uint256)","error ModelAlreadyRegistered()","error RequestNotEligible(uint256)","error UnsortedRequestIds()","error InvalidLineageLength()","error InvalidModelHash()"];
+const ST=["None","Pending","Committed","Disputed","Completed","Refunded"];
+const $=i=>document.getElementById(i),AC=ethers.AbiCoder.defaultAbiCoder(),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const sh=a=>a.slice(0,6)+"…"+a.slice(-4),fe=v=>(+ethers.formatEther(v)).toString(),tm=t=>+t?new Date(+t*1000).toLocaleString():"-";
+const b32=v=>ethers.isHexString(v,32)?v:ethers.keccak256(ethers.toUtf8Bytes(v));
+const ro=new ethers.JsonRpcProvider(C.rpc,C.chain,{staticNetwork:true});
+const P=new ethers.Contract(C.proto,PA,ro);let Pw=P,Vw=new ethers.Contract(C.prov,VA,ro),signer,me,ARB,BOND=0n,DS=[],RQ=[];
+
+function log(m,bad){const d=document.createElement("div");d.textContent=new Date().toLocaleTimeString()+"  "+m;if(bad)d.className="bad";$("log").prepend(d)}
+function errText(e){for(const d of [e.data,e.info?.error?.data,e.error?.data]){try{const p=P.interface.parseError(d);if(p)return p.name+"("+p.args.join(", ")+")"}catch{}}return e.shortMessage||e.message}
+const need=()=>{if(!signer)throw new Error("Connect your wallet first")};
+async function run(label,fn){try{log(label+"…");const t=await fn();if(t?.wait){log("sent "+t.hash);await t.wait()}log(label+" done");await load()}catch(e){log(label+" failed: "+errText(e),1)}}
+
+async function connect(){
+  if(!window.ethereum)return log("No wallet found. Install MetaMask or Rabby.",1);
+  try{
+    await window.ethereum.request({method:"eth_requestAccounts"});
+    try{await window.ethereum.request({method:"wallet_switchEthereumChain",params:[{chainId:"0x"+C.chain.toString(16)}]})}
+    catch(e){if(e.code===4902)await window.ethereum.request({method:"wallet_addEthereumChain",params:[{chainId:"0x15eb",chainName:"opBNB Testnet",rpcUrls:[C.rpc],nativeCurrency:{name:"tBNB",symbol:"tBNB",decimals:18},blockExplorerUrls:[C.scan]}]});else throw e}
+    const bp=new ethers.BrowserProvider(window.ethereum);signer=await bp.getSigner();me=await signer.getAddress();
+    Pw=P.connect(signer);Vw=Vw.connect(signer);$("who").textContent=sh(me);$("conn").textContent="Connected";await load()
+  }catch(e){log("Connect failed: "+errText(e),1)}
+}
+
+async function chunkLogs(f){const head=await ro.getBlockNumber();let out=[];for(let s=C.from;s<=head;s+=50000)out=out.concat(await P.queryFilter(f,s,Math.min(s+49999,head)));return out}
+async function load(){
+  try{
+    const [n,rn]=await Promise.all([P.datasetCount(),P.requestCount()]);ARB=await P.arbiter();BOND=await P.reportBond();
+    const uris={};try{(await chunkLogs(P.filters.DatasetListed())).forEach(e=>uris[Number(e.args[0])]=e.args[3])}catch{log("Could not read listing events",1)}
+    DS=await Promise.all(Array.from({length:Number(n)},(_,i)=>P.getDataset(i+1).then(d=>({id:i+1,d,uri:uris[i+1]||""}))));
+    RQ=await Promise.all(Array.from({length:Number(rn)},(_,i)=>P.getRequest(i+1).then(r=>({id:i+1,r}))));
+    if(me){const [s,c,bal]=await Promise.all([P.getStake(me),P.claimable(me),ro.getBalance(me)]);
+      $("me-info").innerHTML=`Balance <b>${fe(bal)}</b> tBNB · Claimable <b>${fe(c)}</b> · Stake <b>${fe(s.amount)}</b> · Unlock ${tm(s.unlockAt)} · Open reports ${s.openReports}${me.toLowerCase()===ARB.toLowerCase()?' · <b class="ok">you are the arbiter</b>':""}`}
+  }catch(e){log("Load failed: "+errText(e),1)}
+  render()
+}
+
+function render(){
+  const done=RQ.filter(({r})=>Number(r.status)===4),vol=done.reduce((a,{r})=>a+r.amount,0n);
+  $("stats").innerHTML=[[DS.length,"datasets listed"],[RQ.length,"compute requests"],[done.length,"settled"],[fe(vol),"tBNB settled"]].map(([v,l])=>`<div class="card stat"><b>${v}</b>${l}</div>`).join("");
+  const same=(a,b)=>me&&a.toLowerCase()===b.toLowerCase();
+  $("ds").innerHTML=DS.map(({id,d,uri})=>`<div class="card"><b>Dataset #${id}</b> ${d.isActive?'<span class="ok">active</span>':'<span class="mut">inactive</span>'}
+    <div class="mut mono">provider ${sh(d.provider)}</div>
+    <p>${fe(d.pricePerEps)} BNB per eps · ${d.epsRemaining}/${d.epsTotal} eps left<br>Min stake ${fe(d.minBuyerStake)} BNB · ${d.totalCompleted} completed</p>
+    <div class="mono mut">${esc(uri)||"no metadata"}</div>
+    <div class="row"><input id="eps${id}" value="1" aria-label="eps"><button data-a="buy" data-id="${id}">Quote and buy</button></div></div>`).join("")||'<p class="mut">No datasets yet. List one in the Provider tab.</p>';
+  const now=Math.floor(Date.now()/1000),dsOf=id=>DS[id-1]?.d;
+  const rows=RQ.filter(({r})=>!$("mine").checked||same(r.buyer,me||"")||same(dsOf(Number(r.datasetId))?.provider||"",me||""));
+  $("rq").innerHTML=rows.slice().reverse().map(({id,r})=>{
+    const s=Number(r.status),isBuyer=same(r.buyer,me||""),isProv=same(dsOf(Number(r.datasetId))?.provider||"",me||""),isArb=same(ARB||"",me||"");
+    let act=[],dl="-";
+    if(s===1){dl=tm(r.commitDeadline);if(isProv)act.push(["fill","Commit result"]);if(now>+r.commitDeadline)act.push(["refund","Refund buyer"])}
+    if(s===2){dl=tm(r.challengeDeadline);if(isBuyer&&now<+r.challengeDeadline)act.push(["dispute","Dispute"]);if(now>=+r.challengeDeadline)act.push(["finalize","Finalize"])}
+    if(s===3){dl=tm(r.disputeDeadline);if(isArb&&now<=+r.disputeDeadline)act.push(["win","Provider wins"],["lose","Buyer wins"]);if(now>+r.disputeDeadline)act.push(["expire","Expire dispute"])}
+    return `<tr><td>${id}</td><td>${r.datasetId}</td><td class="mono">${sh(r.buyer)}</td><td>${ST[s]}</td><td>${fe(r.amount)}</td><td>${dl}</td><td>${act.map(([a,t])=>`<button data-a="${a}" data-id="${id}">${t}</button>`).join(" ")||"-"}</td></tr>`}).join("")||'<tr><td colspan="7" class="mut">Nothing here.</td></tr>';
+}
+
+const acts={
+  async buy(id){need();const key=$("key").value.trim();if(!/^0x[0-9a-fA-F]+$/.test(key)||key.length<4)throw new Error("Paste or generate your public key first");
+    const eps=Number($("eps"+id).value),cost=await P.quote(id,eps),max=cost+cost*BigInt($("slip").value||100)/10000n;
+    log(`cost ${fe(cost)} BNB, paying up to ${fe(max)} (excess is credited back)`);return Pw.requestCompute(id,eps,key,max,{value:max})},
+  async dispute(id){need();return Pw.disputeResult(id,{value:await P.disputeBondFor(id)})},
+  async finalize(id){need();return Pw.finalize(id)},
+  async refund(id){need();return Pw.refundUncommitted(id)},
+  async win(id){need();return Pw.resolveDispute(id,true)},
+  async lose(id){need();return Pw.resolveDispute(id,false)},
+  async expire(id){need();return Pw.expireDispute(id)},
+  async fill(id){$("c-id").value=id;show("prov");onBond()}
+};
+document.addEventListener("click",e=>{const b=e.target.closest("button[data-a]");if(b){const a=b.dataset.a;if(a==="fill")return acts.fill(b.dataset.id);run(a+" #"+b.dataset.id,()=>acts[a](b.dataset.id))}});
+
+$("conn").onclick=connect;$("mine").onchange=render;
+$("gen").onclick=async()=>{const k=await crypto.subtle.generateKey({name:"ECDH",namedCurve:"P-256"},true,["deriveBits"]);
+  $("key").value=ethers.hexlify(new Uint8Array(await crypto.subtle.exportKey("raw",k.publicKey)));
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(await crypto.subtle.exportKey("jwk",k.privateKey))],{type:"application/json"}));a.download="dedata-buyer-private-key.json";a.click();log("Key pair made. Keep the downloaded private key safe; you need it to decrypt results.")};
+$("b-list").onclick=()=>run("list dataset",async()=>{need();const dh=b32($("l-hash").value.trim()),salt=ethers.hexlify(ethers.randomBytes(32));
+  const c=ethers.keccak256(AC.encode(["address","bytes32","bytes32"],[me,dh,salt]));const rc=await(await Pw.commit(c)).wait();log("commitment mined, waiting one block");
+  while((await signer.provider.getBlockNumber())<=rc.blockNumber)await sleep(1000);
+  return Pw.listDataset(dh,salt,$("l-uri").value,ethers.parseEther($("l-price").value),Number($("l-eps").value),ethers.parseEther($("l-stake").value))});
+async function onBond(){try{const id=$("c-id").value;$("c-bond").textContent=id?"Bond to send: "+fe(await P.providerBondFor(id))+" BNB":""}catch{}}
+$("c-id").oninput=onBond;
+$("b-commit").onclick=()=>run("commit result",async()=>{need();const id=$("c-id").value;return Pw.commitResult(id,b32($("c-res").value.trim()),$("c-root").value.trim(),{value:await P.providerBondFor(id)})});
+$("b-stake").onclick=()=>run("stake",()=>{need();return Pw.stake({value:ethers.parseEther($("s-amt").value)})});
+$("b-ru").onclick=()=>run("request unstake",()=>{need();return Pw.requestUnstake()});
+$("b-un").onclick=()=>run("unstake",()=>{need();return Pw.unstake()});
+$("b-wd").onclick=()=>run("withdraw",()=>{need();return Pw.withdraw()});
+$("b-mint").onclick=()=>run("mint receipt",()=>{need();const ids=$("m-ids").value.split(",").map(s=>BigInt(s.trim())).sort((a,b)=>a<b?-1:1);return Vw.mint(b32($("m-model").value.trim()),ids,$("m-uri").value)});
+$("b-up").onclick=()=>run("uphold leak",()=>{need();return Pw.resolveLeak($("r-id").value,true)});
+$("b-rej").onclick=()=>run("reject leak",()=>{need();return Pw.resolveLeak($("r-id").value,false)});
+$("b-leak").onclick=()=>run("report leak",async()=>{need();const id=$("k-id").value,h=$("k-hash").value.trim(),proof=JSON.parse($("k-proof").value||"[]"),salt=ethers.hexlify(ethers.randomBytes(32));
+  const c=ethers.keccak256(AC.encode(["address","uint256","bytes32","bytes32"],[me,id,h,salt]));const rc=await(await Pw.commit(c)).wait();
+  while((await signer.provider.getBlockNumber())<=rc.blockNumber)await sleep(1000);return Pw.reportLeak(id,h,salt,proof,{value:BOND})});
+
+$("b-dec").onclick=async()=>{try{const id=$("d-id").value,url=$("d-url").value.replace(/\/$/,""),jwk=JSON.parse(await $("d-key").files[0].text()),r=await P.getRequest(id);
+  const buf=new Uint8Array(await(await fetch(`${url}/result/${id}`)).arrayBuffer()),o=JSON.parse(new TextDecoder().decode(buf)),ok=ethers.keccak256(buf)===r.resultHash,E={name:"ECDH",namedCurve:"P-256"};
+  const bits=await crypto.subtle.deriveBits({name:"ECDH",public:await crypto.subtle.importKey("raw",ethers.getBytes(o.epk),E,false,[])},await crypto.subtle.importKey("jwk",jwk,E,false,["deriveBits"]),256);
+  const k=await crypto.subtle.importKey("raw",await crypto.subtle.digest("SHA-256",bits),"AES-GCM",false,["decrypt"]);
+  const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv:ethers.getBytes(o.iv)},k,ethers.getBytes(o.ct));
+  $("d-out").textContent=(ok?"Hash matches the on-chain commitment.\n":"HASH MISMATCH. Dispute this request.\n")+new TextDecoder().decode(pt)}catch(e){log("Decrypt failed: "+errText(e),1)}};
+const TABS={home:"Overview",market:"Market",req:"Requests",prov:"Provider",me:"Wallet",dec:"Decrypt"};
+function show(t){document.querySelectorAll("main section").forEach(s=>s.classList.toggle("on",s.id==="t-"+t));document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t))}
+$("tabs").innerHTML=Object.entries(TABS).map(([k,v])=>`<button data-t="${k}">${v}</button>`).join("");
+$("tabs").onclick=e=>{if(e.target.dataset.t)show(e.target.dataset.t)};
+show("home");load();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "name": "dedata-protocol",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DeData Protocol: off-chain tooling for the contracts deployed on opBNB Testnet",
+  "scripts": {
+    "status": "node --env-file=.env script/dedata.js status",
+    "canary": "node script/canary-tree.js",
+    "web": "npx --yes serve web",
+    "provider": "node --env-file=.env script/provider-node.js",
+    "keeper": "node --env-file=.env script/keeper.js"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0"
+  }
+}

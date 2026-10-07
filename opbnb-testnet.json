@@ -1,0 +1,19 @@
+{
+  "network": "opBNB Testnet",
+  "chainId": 5611,
+  "rpc": "https://opbnb-testnet-rpc.bnbchain.org",
+  "explorer": "https://testnet.opbnbscan.com",
+  "deployer": "0xE567189259EeaDc51965edE0c9c84043F6ED5cdA",
+  "DeDataProtocol": {
+    "address": "0x5c6dA7E2B4D37Bc88E828c6512c93C659e5f1F1d",
+    "txHash": "0x2749adb15b85b9b980072503a30a2b1f5da303311d69ed87d6935aafb5cbac9e",
+    "blockNumber": 209310482,
+    "gasUsed": 3501301
+  },
+  "DeDataProvenance": {
+    "address": "0x3b9b87018E3f99841f4323dC2357BD21075dfbde",
+    "txHash": "0x49dc3f589e6f5d0dcdfb98cc262ea7c5e1f261dbee99494c5e36d258b39c541c",
+    "blockNumber": 209311173,
+    "gasUsed": 975289
+  }
+}
